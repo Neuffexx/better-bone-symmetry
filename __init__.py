@@ -78,48 +78,53 @@ class OBJECT_OT_bettersym(Operator):
     symmetrySource: bpy.props.StringProperty(
         name="Source Bone Namer",
         default=".L",
-        description="The String that will be used to identify the bone(s), which to symmetrize extra data from.\nWill do nothing if no bone(s) is found with this Namer",
+        description="The String that will be used to identify the bone(s), which to symmetrize extra data from.\n\n*Will do nothing if no bone(s) is found with this Namer",
     )
     symmetryTarget: bpy.props.StringProperty(
         name="Target Bone Namer",
         default=".R",
-        description="The String that will be used to decide what bone(s), to give the extra data to.\nWill do nothing if no bone(s) is found with this Namer",
+        description="The String that will be used to decide what bone(s), to give the extra data to.\n\n*Will do nothing if no bone(s) is found with this Namer",
     )
     symmetryNamingStyle: bpy.props.EnumProperty(
         name = "Namer Convention Style",
         default = "Suffix",
         items = [
-            ("Prefix", "Prefix", "Prefix: will only search the END of the Bone(s)'s Name.\n(i.e Valid Case: L.MyBone | Invalid Case: MyBone L.)"),
-            ("Suffix", "Suffix", "Suffix: will only search the START of the Bone(s)'s Name.\n(i.e Valid Case: MyBone.L | Invalid Case: .LMyBone)"),
-            ("Substring", "Substring", "Substring: Will search through ALL of the Bone(s)'s name, and chose any that match this character-combo case.\n(i.e All of these are valid matches: MyBone.L, My.LBone, .LMyBone)")
+            ("Prefix", "Prefix", "Prefix: will only search the END of the Bone(s)'s Name.\n\ni.e.\nValid Case: 'L.MyBone' | Invalid Case: 'MyBone L.'"),
+            ("Suffix", "Suffix", "Suffix: will only search the START of the Bone(s)'s Name.\n\ni.e.\nValid Case: 'MyBone.L' | Invalid Case: '.LMyBone'"),
+            ("Substring", "Substring", "Substring: Will search through ALL of the Bone(s)'s name, and chose any that match this character-combo case.\n\ni.e.\nAll of these are valid Cases: 'MyBone.L', 'My.LBone', '.LMyBone'")
              ],
-        description = "Choose what naming convention should be considered when checking the names.\n ---------- Might be useless since the Namers will already indicate the convention",
+        description = "Choose what naming convention should be considered when checking the names.",
     )
     bSymmetrizeCollections: bpy.props.BoolProperty(
         name="Sym Bone Collection",
         default=True,
-        description="Move to Mirrored Bone Collections, assuming they are follow a naming convention (i.e. Suffix).\nWill create new collections if they dont already exist\nMUST have same naming convention as Bones",
+        description="Move to Mirrored Bone Collections, assuming they are follow a naming convention (i.e. Suffix).\nWill create new collections if they dont already exist\n\n*MUST have same naming convention as Bones",
     )
     bAssignToTopParent: bpy.props.BoolProperty(
         name="Assign Top-Parent Collection",
         default=False,
-        description="In addition to moving the bones to their mirrored parent collections, will also add/assign the bone(s) to the Parent Collection's upwards along the hierarchy.\nNot needed if the bones are already assigned to their respective Parent Collections before mirroring the collections.\nThis will only work if the 'Sym Bone Collections' pass is also enabled.\n This WILL affect BOTH Source and Target bones",
+        description="NOTE: Workaround to let you 'Solo' all child collections from a Parent's solo-button.\n\nIn addition to moving the bones to their mirrored parent collections, will also add/assign the bone(s) to the Parent Collection's, up the hierarchy.\n(Not needed if the bones are already assigned to their respective Parent Collections before mirroring the collections)\n\n*This will only work if the 'Sym Bone Collections' pass is also enabled.\n*WILL affect BOTH Source and Target bones",
         #warning="This will only work if the 'Sym Bone Collections' pass is also enabled",
     )
     bSymmetrizeConstraints: bpy.props.BoolProperty(
         name="Sym Bone Constraints",
         default=True,
-        description="Copy the Modifiers of the Source Bones to the Target Bones",
+        description="Copy the Bone-Constraints of the Source Bones to the Target Bones",
+    )
+    bRemoveExistingConstraints: bpy.props.BoolProperty(
+        name="Delete Existing Constraints",
+        default=True,
+        description="Will remove existing Bone-Constraints of Target Bones, to avoid creating duplicates",
     )
     bSymmetrizeConstraintBones: bpy.props.BoolProperty(
         name="Mirror Constraint Targets",
         default=True,
-        description="Whether to mirror Constraint's targeted Bone's.\nOnly used if 'Sym Bone Constraints' is enabled.\n(i.e. StretchTo Constraint: Target: MyArmature | Bone: MyBone.L -> NewStrtchTo Constraint: Target: MyArmature | Bone: MyBone.R)",
+        description="Whether to mirror Constraint's targeted Bone's.\nOnly used if 'Sym Bone Constraints' is enabled.\n\ni.e. \nSource-StretchTo: Target: 'MyArmature' | Bone: 'MyBone.L' ->\nTarget-StretchTo: Target: 'MyArmature' | Bone: 'MyBone.R'",
     )
     bSymmetrizeDrivers: bpy.props.BoolProperty(
         name="Sym Drivers",
         default=True,
-        description="Will attempt to Copy the Driver(s) setup, that was used in the Source Bone(s) to the newly created Target Bone(s).\nIf no matching modifiers are found on the relevant bones then no drivers will be created",
+        description="Will attempt to Copy the Driver(s) setup, that was used in the Source Bone(s) to the newly created Target Bone(s)",
     )
 
 
@@ -190,7 +195,7 @@ class OBJECT_OT_bettersym(Operator):
         if self.bSymmetrizeConstraints:
             print("Symmetrize MODIFIERS")
             # Copy the constraints from SourcePoseBones to TargetPoseBones
-            copy_constraints(targetBones, self.bSymmetrizeConstraintBones)
+            copy_constraints(targetBones, self.bRemoveExistingConstraints, self.bSymmetrizeConstraintBones)
 
         ###                              ###
         #         --- Drivers ---          #
@@ -319,7 +324,7 @@ def assign_to_top_parent(target_bones):
 #####             #####
 
 # Copies the constraint of a source pose-bone, based on a target pose-bones name.
-def copy_constraints(target_bones, mirror_subtargets):
+def copy_constraints(target_bones, remove_existing, mirror_subtargets):
     global pose
 
     print("COPYING CONSTRAINTS")
@@ -334,7 +339,16 @@ def copy_constraints(target_bones, mirror_subtargets):
         if has_namer('t', pose_bone.name):
             filtered_target_pose_bones.append(pose_bone)
 
+    print("Filtered Bones:")
+    for bone in filtered_target_pose_bones:
+        print("- Bone: {}".format(bone.name))
+
     for target_pose_bone in filtered_target_pose_bones:
+        # Remove all bone constraints (avoid duplicates)
+        if remove_existing:
+            while target_pose_bone.constraints:
+                target_pose_bone.constraints.remove(target_pose_bone.constraints[0])
+
         # Get bone to copy constraint from
         source_bone_name = get_source_name(target_pose_bone.name)
         source_pose_bone = get_bone(source_bone_name, pose.bones)
@@ -354,7 +368,8 @@ def copy_constraints(target_bones, mirror_subtargets):
                                 setattr(new_constraint, attr, getattr(constraint, attr))
                         except AttributeError as ae:
                             print("- Attribute Error, for Constraint '{}': \n{}".format(new_constraint.name, ae))
-                print(f"Copied constraint: '{constraint.name}' from: '{source_bone_name}' to: '{target_pose_bone.name}'")
+                print(
+                    f"Copied constraint: '{constraint.name}' from: '{source_bone_name}' to: '{target_pose_bone.name}'")
 
 
 #####         #####

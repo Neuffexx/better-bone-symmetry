@@ -15,17 +15,33 @@ Bust is intended to be used after the built in one.
 
 
 ## Details
-    This Addon was made specifically to be flexible to work with any naming convention,
-    BUT requires it to be consistent.
-    (i.e. Bones and Collections need to have the same suffix, to use Collection Symmetry)
+**NOTE**  
+This Addon was made specifically to be flexible in working with any naming convention,  
+BUT requires it to be consistent.  
+    
+    i.e. Bones and Collections need to have the same suffix, to use Collection Symmetry
 
-    Though it is possible to copy data between bones that outside Prefix/Suffix selection,
-    via the substring option.
-    (i.e. Source Namer: 'MCH - Thumb' | Target Namer: 'MCH - Finger', to copy Constraints: 'MCH - Thumb_01_tip' -> 'MCH - Finger_01_tip' etc.)  
+If no Collection is involved though, then it is possible to copy data between bones outside Prefix/Suffix conventions,
+via the substring option.  
+    
+    i.e. 
+    ) Bones: 'MCH - Thumb_XX_tip.L', and 'MCH - Finger_XX_tip.L'
+    ) Source Namer: 'Thumb' 
+    ) Target Namer: 'Finger'
+    ) Namver Convention: 'Substring'
+    Copy's Constraints: 'MCH - Thumb_01_tip.L' -> 'MCH - Finger_01_tip.L'
+    For all 'Thumb_XX' and 'Finger_XX' bones selected (if Selected Bones enabled).
+    
+    --- WARNING! ---
+    In such a usecase, where you want to copy data between bones of the same symmetry side,
+    this can also copy the constarints .R bones, if they exist, not only .L bones.
+    Therefore it is recommended to do this before creating bones via Blender's Symmetrize, or use 'Selected Bones' option.
+
 
 ### Location:  
-- View3D > Pose  
-- Pose Context Menu - W Hotkey (I use 27x keybinds, so it may be different for you)
+- View3D > Pose Mode > Pose
+- Pose Context Menu - W Hotkey  
+  (I use 27x keybinds, so it may be different for you)
 
 ### Options: 
 ![image](https://github.com/user-attachments/assets/c395494d-7715-4f10-b8f7-314345213009)
