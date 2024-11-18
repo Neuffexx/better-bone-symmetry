@@ -408,14 +408,14 @@ def menu_func(self, context):
 # Un/Register functions for when addon is installed or removed
 def register():
     bpy.utils.register_class(OBJECT_OT_bettersym)
-    #bpy.types.VIEW3D_MT_pose.append(menu_func)  # Register operator to Pose-Menu
+    bpy.types.VIEW3D_MT_pose.append(menu_func)  # Register operator to Pose-Menu
     bpy.types.VIEW3D_MT_pose_context_menu.append(menu_func)  # Register operator to Pose-Context-Menu
     print("Registered: Better Bone Symmetry")
 
 
 def unregister():
     bpy.utils.unregister_class(OBJECT_OT_bettersym)
-    #bpy.types.VIEW3D_MT_pose.remove(menu_func)
+    bpy.types.VIEW3D_MT_pose.remove(menu_func)
     bpy.types.VIEW3D_MT_pose_context_menu.remove(menu_func)
     print("Unregistered: Better Bone Symmetry")
 
