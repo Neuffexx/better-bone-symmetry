@@ -69,6 +69,10 @@ class OBJECT_OT_bettersym(Operator):
     ###                   ###
     #   CUSTOM PROPERTIES   #
     # Properties for UNDO panel
+    categorySplitter1: bpy.props.StringProperty(
+        name="Bone Selection",
+        default="----------------",
+    )
     bSymmetryType: bpy.props.BoolProperty(
         name="Selected Bone(s)",
         #icon="RESTRICT_SELECT_OFF", - Doesnt recognize icon as a parameter?
@@ -95,6 +99,10 @@ class OBJECT_OT_bettersym(Operator):
              ],
         description = "Choose what naming convention should be considered when checking the names.",
     )
+    categorySplitter2: bpy.props.StringProperty(
+        name="Collections",
+        default="----------------",
+    )
     bSymmetrizeCollections: bpy.props.BoolProperty(
         name="Sym Bone Collection",
         default=True,
@@ -105,6 +113,10 @@ class OBJECT_OT_bettersym(Operator):
         default=False,
         description="NOTE: Workaround to let you 'Solo' all child collections from a Parent's solo-button.\n\nIn addition to moving the bones to their mirrored parent collections, will also add/assign the bone(s) to the Parent Collection's, up the hierarchy.\n(Not needed if the bones are already assigned to their respective Parent Collections before mirroring the collections)\n\n*This will only work if the 'Sym Bone Collections' pass is also enabled.\n*WILL affect BOTH Source and Target bones",
         #warning="This will only work if the 'Sym Bone Collections' pass is also enabled",
+    )
+    categorySplitter3: bpy.props.StringProperty(
+        name="Constraints",
+        default="----------------",
     )
     bSymmetrizeConstraints: bpy.props.BoolProperty(
         name="Sym Bone Constraints",
@@ -120,6 +132,10 @@ class OBJECT_OT_bettersym(Operator):
         name="Mirror Constraint Targets",
         default=True,
         description="Whether to mirror Constraint's targeted Bone's.\nOnly used if 'Sym Bone Constraints' is enabled.\n\ni.e. \nSource-StretchTo: Target: 'MyArmature' | Bone: 'MyBone.L' ->\nTarget-StretchTo: Target: 'MyArmature' | Bone: 'MyBone.R'",
+    )
+    categorySplitter4: bpy.props.StringProperty(
+        name="Drivers",
+        default= "----------------",
     )
     bSymmetrizeDrivers: bpy.props.BoolProperty(
         name="Sym Drivers",
