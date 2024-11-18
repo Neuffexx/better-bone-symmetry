@@ -105,13 +105,13 @@ class OBJECT_OT_bettersym(Operator):
         description="In addition to moving the bones to their mirrored parent collections, will also add/assign the bone(s) to the Parent Collection's upwards along the hierarchy.\nNot needed if the bones are already assigned to their respective Parent Collections before mirroring the collections.\nThis will only work if the 'Sym Bone Collections' pass is also enabled.\n This WILL affect BOTH Source and Target bones",
         #warning="This will only work if the 'Sym Bone Collections' pass is also enabled",
     )
-    bSymmetrizeModifiers: bpy.props.BoolProperty(
-        name="Sym Bone Modifiers",
+    bSymmetrizeConstraints: bpy.props.BoolProperty(
+        name="Sym Bone Constraints",
         default=True,
         description="Copy the Modifiers of the Source Bones to the Target Bones",
     )
     bSymmetrizeDrivers: bpy.props.BoolProperty(
-        name="Sym Bone Drivers",
+        name="Sym Drivers",
         default=True,
         description="Will attempt to Copy the Driver(s) setup, that was used in the Source Bone(s) to the newly created Target Bone(s).\nIf no matching modifiers are found on the relevant bones then no drivers will be created",
     )
@@ -179,7 +179,7 @@ class OBJECT_OT_bettersym(Operator):
 
         ###                              ###
         #        --- Modifiers ---         #
-        if self.bSymmetrizeModifiers:
+        if self.bSymmetrizeConstraints:
             print("Symmetrize MODIFIERS")
         ###                              ###
         #         --- Drivers ---          #
