@@ -46,7 +46,8 @@ from bpy.props import (
 #####         #####
 #     GLOBALS     #
 #####         #####
-rig = None         # Will be used by all Symmetry Options
+armature = None         # Will be used by all Symmetry Options
+pose = None             # Will be used for Constraints / Drivers
 #saved_mode = None # If I want to let this functionality be called independant of being in pose mode or not, but unlikely
 SourceNamer = "" # Bones to Copy Data from
 TargetNamer = "" # Bones to Paste Data into
@@ -110,6 +111,11 @@ class OBJECT_OT_bettersym(Operator):
         default=True,
         description="Copy the Modifiers of the Source Bones to the Target Bones",
     )
+    bSymmetrizeConstraintBones: bpy.props.BoolProperty(
+        name="Mirror Constraint Targets",
+        default=True,
+        description="Whether to mirror Constraint's targeted Bone's.\nOnly used if 'Sym Bone Constraints' is enabled.\n(i.e. StretchTo Constraint: Target: MyArmature | Bone: MyBone.L -> NewStrtchTo Constraint: Target: MyArmature | Bone: MyBone.R)",
+    )
     bSymmetrizeDrivers: bpy.props.BoolProperty(
         name="Sym Drivers",
         default=True,
@@ -133,15 +139,17 @@ class OBJECT_OT_bettersym(Operator):
     #   Class Functionality   #
     def execute(self, context):
         # Save Armature
+        global armature, pose
         armature = context.active_object.data
+        pose = context.active_object.pose
         # Bone Namers           *Note: One-Time assignment, and used by all passes, therefore globals
         global SourceNamer, TargetNamer, NamerStyle
         SourceNamer = self.symmetrySource
         TargetNamer = self.symmetryTarget
         NamerStyle = self.symmetryNamingStyle
         print("Source Namer: {} | Target Namer: {} | Style: {}".format(SourceNamer, TargetNamer, NamerStyle))
-        # Bones to Source Data from
-        sourceBones = []
+        # Bones to give Data
+        targetBones = []
 
         ###                         ###
         #   Determine Source Method   #
@@ -150,12 +158,12 @@ class OBJECT_OT_bettersym(Operator):
             print("Selected Bones Only")
             # PoseBones hold no collection information, need to extract associated 'Bone' objects
             for PoseBone in context.selected_pose_bones:
-                sourceBones.append(PoseBone.bone)
+                targetBones.append(PoseBone.bone)
         else:
             print("All Bones")
             # 'armature.bones' holds a collection object (bpy.types.bpy_prop_collection), need to extract 'Bone' objects
             for key in armature.bones.keys():
-                sourceBones.append(armature.bones.get(key))
+                targetBones.append(armature.bones.get(key))
 
         ###                              ###
         #   Determine what to symmetrize   #
@@ -166,21 +174,24 @@ class OBJECT_OT_bettersym(Operator):
             mirrored_collection_names = []
 
             # Get Collection Names
-            gather_mirror_collections(sourceBones, armature.collections, mirrored_collection_names)
+            gather_mirror_collections(targetBones, armature.collections, mirrored_collection_names)
             # Create Bone Collections
             create_mirror_collections(mirrored_collection_names, armature.collections)
             # Move Bones
-            move_mirror_bones(sourceBones, armature.collections)
+            move_mirror_bones(targetBones, armature.collections)
             # Sort Collections
             sort_target_collections(armature)
             # Assign bone to Parent collections upwards of the collection hierarchy, until Top-Level parent.
             if self.bAssignToTopParent:
-                assign_to_top_parent(sourceBones)
+                assign_to_top_parent(targetBones)
 
         ###                              ###
         #        --- Modifiers ---         #
         if self.bSymmetrizeConstraints:
             print("Symmetrize MODIFIERS")
+            # Copy the constraints from SourcePoseBones to TargetPoseBones
+            copy_constraints(targetBones, self.bSymmetrizeConstraintBones)
+
         ###                              ###
         #         --- Drivers ---          #
         if self.bSymmetrizeDrivers:
@@ -189,7 +200,7 @@ class OBJECT_OT_bettersym(Operator):
         ###                                                    ###
         #        --- Deselect Source | Select Target ---         #
         #        Visual Feedback for Operation Completed         #
-        select_bones_with_namer('t', sourceBones)
+        select_bones_with_namer('t', targetBones)
 
         print("FINISHED EXECUTION: Better Bone Symmetry")
         return {'FINISHED'}
@@ -200,14 +211,14 @@ class OBJECT_OT_bettersym(Operator):
 #####             #####
 
 # Recursively gather Bone-Collections with SourceNamer and change to TargetNamer for Mirroring
-def gather_mirror_collections(bones, collections, mirrored_collection_names):
+def gather_mirror_collections(target_bones, collections, mirrored_collection_names):
     for collection in collections:
         # Check if Collection has SourceNamer
         if has_namer('s', collection.name):
             # Avoid creating collections that dont need mirroring (since there are no bones that need it in them)
             for bone in collection.bones:
                 # Ensure that Bone has TargetNamer, and is a 'Source Bone'
-                if has_namer('t', bone.name) and (bone in bones):
+                if has_namer('t', bone.name) and (bone in target_bones):
                     mirrored_name = get_target_name(collection.name)
                     # Avoide dupplicate append, in case more than 1 bone inside of same mirrored collection
                     if mirrored_name not in [item[1] for item in mirrored_collection_names]:
@@ -216,7 +227,7 @@ def gather_mirror_collections(bones, collections, mirrored_collection_names):
 
         # Check if current collection has any children
         if hasattr(collection, 'children'):
-            gather_mirror_collections(bones, collection.children, mirrored_collection_names)
+            gather_mirror_collections(target_bones, collection.children, mirrored_collection_names)
 
 # Create new Bone-Collections based on the gathered names and save reference
 def create_mirror_collections(mirrored_collection_names, collections):
@@ -256,7 +267,7 @@ def sort_target_collections(armature):
                     parent_target_collection = get_collection(parent_target_name, armature.collections)
                     if parent_target_collection:
                         target_collection.parent = parent_target_collection
-                        print(f"Assigned Parent: {parent_target_name} -> {target_name}")
+                        print(f"Assigned: {target_name} to {parent_target_name}")
 
                 # Assign the correct parent for child collections if they exist
                 for child_collection in source_collection.children:
@@ -267,9 +278,9 @@ def sort_target_collections(armature):
                         print(f"Assigned Child: {child_target_name} -> Parent: {target_name}")
 
 # Move Bones to correct Collections (only if R bones are in L collections)
-def move_mirror_bones(bones, collections):
+def move_mirror_bones(target_bones, collections):
     print("MOVING BONES:")
-    for bone in bones:
+    for bone in target_bones:
         # Check if the bone has the mirrored suffix (i.e. ".R")
         if TargetNamer in bone.name:
             for collection in bone.collections:
@@ -289,9 +300,9 @@ def move_mirror_bones(bones, collections):
 
 # Assign Bones to Top-Level Parent collections - to allow soloing all child collections of Top-Level Parent.
 # (4.2.3 Workaround)
-def assign_to_top_parent(bones):
-    print("ASSIGNING BONES TO TOP-LEVEL PARENT COLLECTIONS")
-    for bone in bones:
+def assign_to_top_parent(target_bones):
+    print("ASSIGNING BONES")
+    for bone in target_bones:
         for collection in bone.collections:
             current_collection = collection
             # Traverse upwards in the hierarchy and assign the bone to each parent collection
@@ -303,11 +314,47 @@ def assign_to_top_parent(bones):
                 current_collection = parent_collection
 
 
+#####             #####
+#     Constraints     #
+#####             #####
 
-#####           #####
-#     Modifiers     #
-#####           #####
+# Copies the constraint of a source pose-bone, based on a target pose-bones name.
+def copy_constraints(target_bones, mirror_subtargets):
+    global pose
 
+    print("COPYING CONSTRAINTS")
+    # Get the PoseBone of the source_bones
+    # Only PoseBone's hold information to Constraints.
+    target_pose_bones = []
+    for target_bone in target_bones:
+        target_pose_bones.append(pose.bones.get(target_bone.name))
+    # Filter to only be 'Target' bones
+    filtered_target_pose_bones = []
+    for pose_bone in target_pose_bones:
+        if has_namer('t', pose_bone.name):
+            filtered_target_pose_bones.append(pose_bone)
+
+    for target_pose_bone in filtered_target_pose_bones:
+        # Get bone to copy constraint from
+        source_bone_name = get_source_name(target_pose_bone.name)
+        source_pose_bone = get_bone(source_bone_name, pose.bones)
+        if source_pose_bone:
+            # Copy each constraint from source bone to target bone
+            for constraint in source_pose_bone.constraints:
+                new_constraint = target_pose_bone.constraints.new(type=constraint.type)
+                # Copy over properties of the constraint
+                for attr in dir(constraint):
+                    if not attr.startswith("_") and attr not in {'type', 'rna_type', 'bl_rna'}:
+                        try:
+                            # Special handling for 'target' and 'subtarget' attributes in constraints
+                            if attr == 'subtarget' and mirror_subtargets:
+                                # Mirror the bone name in 'subtarget'
+                                setattr(new_constraint, attr, get_target_name(getattr(constraint, attr)))
+                            else:
+                                setattr(new_constraint, attr, getattr(constraint, attr))
+                        except AttributeError as ae:
+                            print("- Attribute Error, for Constraint '{}': \n{}".format(new_constraint.name, ae))
+                print(f"Copied constraint: '{constraint.name}' from: '{source_bone_name}' to: '{target_pose_bone.name}'")
 
 
 #####         #####
@@ -347,6 +394,12 @@ def get_collection(collection_name, collections):
         # Add children to the stack for further searching
         if hasattr(collection, 'children'):
             stack.extend(collection.children)
+    return None
+
+def get_bone(bone_name, bones):
+    for bone in bones:
+        if bone_name == bone.name:
+            return bone
     return None
 
 # If the Bone/Collection's matches the Namer convention, based on the NamerStyle, returns True
